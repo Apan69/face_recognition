@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face Access - вход</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e2e5ea; --accent:#2563eb; --bad:#b91c1c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1d222b; --text:#e6e8ec; --muted:#9aa3b2; --line:#2c3340; --accent:#4f8bff; --bad:#f87171; }
+  }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         font:15px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  form { width:min(340px, 92vw); background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; }
+  h1 { margin:0 0 4px; font-size:20px; text-align:center; }
+  #hint { margin:0 0 6px; font-size:13px; color:var(--muted); text-align:center; min-height:18px; }
+  label { display:block; margin:10px 0 4px; font-size:13px; color:var(--muted); }
+  input { font:inherit; width:100%; box-sizing:border-box; padding:9px; border:1px solid var(--line); border-radius:7px;
+          background:var(--card); color:var(--text); }
+  button { font:inherit; width:100%; margin-top:16px; padding:10px; border:0; border-radius:7px;
+           background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  #msg { min-height:20px; margin-top:12px; font-size:13px; color:var(--bad); text-align:center; }
+</style>
+</head>
+<body>
+<form id="f" autocomplete="on">
+  <h1>Face Access</h1>
+  <div id="hint"></div>
+  <label for="login">Логин</label>
+  <input id="login" name="username" autocomplete="username" autofocus required>
+  <label for="password">Пароль</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required>
+  <button id="btn" type="submit">Войти</button>
+  <div id="msg"></div>
+</form>
+<script>
+const $ = id => document.getElementById(id);
+
+// если вход в конфиге не настроен - сказать об этом сразу
+fetch('/login/info').then(r => r.json()).then(i => {
+  if (i.provider === 'perco') $('hint').textContent = 'Вход по учётной записи Perco';
+  if (i.state === 'unconfigured') $('msg').textContent = 'Вход не настроен: ' + i.message;
+}).catch(() => {});
+
+$('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('btn').disabled = true; $('msg').textContent = '';
+  try {
+    const r = await fetch('/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: $('login').value, password: $('password').value }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { location.href = '/'; return; }
+    $('msg').textContent = j.detail || ('Ошибка ' + r.status);
+    $('password').value = ''; $('password').focus();
+  } catch (err) {
+    $('msg').textContent = 'Нет связи с сервером';
+  }
+  $('btn').disabled = false;
+});
+</script>
+</body>
+</html>
