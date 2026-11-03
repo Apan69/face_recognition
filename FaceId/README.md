@@ -23,9 +23,11 @@ src/engines/           движки распознавания (сейчас т�
 sudo apt install -y python3-dev build-essential fonts-dejavu-core
 pip install -r requirements.txt
 python3 check_gpu.py            # проверка GPU (если есть)
-python3 run.py --encode         # эмбеддинги для фото из images/ (имя файла = id сотрудника)
-python3 run.py                  # без ключей, настройки из configs/config.yaml; https://<адрес-сервера>:8000
+python3 run.py -p <пароль_API> --encode  # эмбеддинги для фото из images/ (имя файла = id сотрудника)
+python3 run.py -p <пароль_API>          # пароль API (connection.password) задаётся при запуске, остальные настройки - в configs/config.yaml; https://<адрес-сервера>:8000
 ```
+Пароль API можно передать и через переменную окружения `FACE_API_PASSWORD` (удобно для systemd: `Environment=FACE_API_PASSWORD=...`),
+тогда в config.yaml его хранить не нужно. Без `-p` используется `connection.password` из config.yaml (для совместимости со старыми конфигами).
 Автозапуск: `mediamtx.service` и `face-access.service` (пути в них - /faceId) -> `systemctl enable --now mediamtx face-access`.
 
 ## Веб-страница

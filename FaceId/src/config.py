@@ -4,6 +4,20 @@ import shutil
 
 import yaml
 
+# пароль API задаётся при запуске: python3 run.py -p <пароль>; переменная окружения - для служебного запуска
+API_PASSWORD_ENV = "FACE_API_PASSWORD"
+
+
+def apply_api_password(cfg):
+    """Подставляет пароль API (из запуска run.py -p / FACE_API_PASSWORD) в cfg.connection.password.
+    Возвращает cfg (тот же словарь); без пароля конфиг остаётся как есть."""
+    pwd = os.environ.get(API_PASSWORD_ENV)
+    if pwd and isinstance(cfg, dict):
+        conn = cfg.setdefault("connection", {})
+        if isinstance(conn, dict):
+            conn["password"] = pwd
+    return cfg
+
 
 def parse_config(raw):
     """bytes/str -> dict. Бросает ValueError, если YAML невалиден или в нём нет обязательных настроек."""
@@ -11,7 +25,7 @@ def parse_config(raw):
         cfg = yaml.safe_load(raw)
     except yaml.YAMLError as e:
         raise ValueError(f"некорректный YAML: {e}")
-    return validate_config(cfg)
+    return validate_config(apply_api_password(cfg))
 
 
 def load_config(path):

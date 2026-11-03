@@ -1,7 +1,8 @@
-"""Запуск без ключей:  python3 run.py   - веб-интерфейс + распознавание (настройки: configs/config.yaml)
+"""Запуск:  python3 run.py -p <пароль_API>   - веб-интерфейс + распознавание (остальные настройки: configs/config.yaml)
+   Пароль API (connection.password) берётся из запуска, в config.yaml его хранить не нужно.
    Служебные ключи:
-           python3 run.py --encode   - только посчитать эмбеддинги для фото из images_folder
-           python3 run.py --list     - вывести список пользователей и сохранить Id_for_tele.xlsx
+           python3 run.py -p <пароль> --encode   - только посчитать эмбеддинги для фото из images_folder
+           python3 run.py -p <пароль> --list     - вывести список пользователей и сохранить Id_for_tele.xlsx
 """
 import argparse
 import os
@@ -69,6 +70,8 @@ def cmd_hash_password():
 
 def main():
     parser = argparse.ArgumentParser(prog="face-access")
+    parser.add_argument("-p", "--password", metavar="ПАРОЛЬ_API", default=None,
+                        help="пароль API системы допуска (connection.password); если не задан - берётся из config.yaml")
     parser.add_argument("-e", "--encode", action="store_true")
     parser.add_argument("-l", "--list", action="store_true")
     parser.add_argument("--hash-password", action="store_true", help="получить хеш пароля для auth.users[].password_hash")
@@ -76,6 +79,10 @@ def main():
 
     if args.hash_password:
         return cmd_hash_password()
+
+    if args.password:
+        from src.config import API_PASSWORD_ENV
+        os.environ[API_PASSWORD_ENV] = args.password  # подставится в connection.password при загрузке конфига
 
     from src.config import load_config
     cfg = load_config(CONFIG_FILE)
