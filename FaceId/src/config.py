@@ -1,8 +1,35 @@
 """Загрузка, проверка и безопасная запись config.yaml."""
 import os
 import shutil
+import sys
 
 import yaml
+
+# Пароль Perco не хранится в config.yaml: его передают при запуске сервиса
+#   ExecStart=/usr/bin/python3 /faceId/run.py ПАРОЛЬ        (или переменной окружения FACE_PERCO_PASSWORD)
+_runtime = {"password": None}
+
+
+def set_runtime_password(password):
+    _runtime["password"] = password or None
+
+
+def runtime_password():
+    if _runtime["password"]:
+        return _runtime["password"]
+    env = os.environ.get("FACE_PERCO_PASSWORD")
+    if env:
+        return env
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]      # run.py ПАРОЛЬ
+    return args[0] if args else None
+
+
+def apply_runtime_secrets(cfg):
+    """Подставляет пароль Perco из аргумента запуска / окружения в connection.password (пароль из запуска главнее файла)."""
+    pw = runtime_password()
+    if pw and isinstance(cfg, dict) and isinstance(cfg.get("connection"), dict):
+        cfg["connection"]["password"] = pw
+    return cfg
 
 
 def parse_config(raw):
@@ -11,7 +38,7 @@ def parse_config(raw):
         cfg = yaml.safe_load(raw)
     except yaml.YAMLError as e:
         raise ValueError(f"некорректный YAML: {e}")
-    return validate_config(cfg)
+    return validate_config(apply_runtime_secrets(cfg))
 
 
 def load_config(path):
@@ -40,7 +67,10 @@ def validate_config(cfg):
     if source == "excel" and not cfg.get("excel_file"):
         raise ValueError("при source: excel нужен excel_file")
     if source == "db" and not isinstance(cfg.get("connection"), dict):
-        raise ValueError("при source: db нужен раздел connection (host, login, password)")
+        raise ValueError("при source: db нужен раздел connection (host, login)")
+    if source == "db" and not str(cfg["connection"].get("password") or ""):
+        raise ValueError("не задан пароль Perco: передайте его при запуске (run.py ПАРОЛЬ) "
+                         "или переменной окружения FACE_PERCO_PASSWORD")
 
     if not isinstance(cfg["camera"], dict) or cfg["camera"].get("id") in (None, ""):
         raise ValueError("в разделе camera нужен параметр id (RTSP-адрес или номер камеры)")
@@ -56,6 +86,10 @@ def validate_config(cfg):
     fid = cfg["turnstiles"].get("face_pass_field_id", -4)
     if not isinstance(fid, int) or isinstance(fid, bool):
         raise ValueError("turnstiles.face_pass_field_id должен быть целым числом (id поля карточки Perco)")
+
+    hours = cfg.get("log_view_hours", 6)
+    if isinstance(hours, bool) or not isinstance(hours, (int, float)) or not 0 < hours <= 720:
+        raise ValueError("log_view_hours должен быть числом часов от 1 до 720 (сколько показывать на вкладке «Журнал»)")
 
     rtsp = cfg.get("rtsp_server") or {}
     if rtsp.get("enabled") and not rtsp.get("url"):

@@ -84,6 +84,7 @@ class AccessService:
         cfg = self.config
         try:
             setup_logger(cfg)
+            log.info("=" * 70)       # каждый запуск (и перезапуск после смены конфига) отделяется в журнале
             log.info("Starting: mode=%s source=%s test_mode=%s", cfg["mode"], cfg.get("source", "db"),
                      cfg.get("test_mode", False))
             self._load_events(cfg)

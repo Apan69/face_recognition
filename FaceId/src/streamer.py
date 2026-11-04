@@ -3,6 +3,7 @@
 
 * Кодирование: h264_nvenc (GPU) или libx264 (CPU); config['rtsp_server']['encoder']: auto | nvenc | x264.
   В режиме auto NVENC проверяется реальным тестовым кодированием теми же параметрами, что и в работе.
+  Если NVENC не принимает полный набор параметров, пробуются упрощённые наборы (старые драйверы / сборки ffmpeg).
 * put_frame() никогда не блокирует цикл распознавания: очередь на 2 кадра, старый кадр выбрасывается.
 * За жизнь ffmpeg отвечает один поток - гонок при переподключении нет.
 """
@@ -28,6 +29,7 @@ class RTSPStreamer:
         self.bitrate = str(rtsp_config.get("bitrate", "3M"))
         self.encoder_setting = str(rtsp_config.get("encoder", "auto")).lower()
         self.encoder = None
+        self._nvenc_level = 0           # какой из наборов параметров NVENC подошёл (см. _nvenc_variants)
         self.frame_queue = queue.Queue(maxsize=2)
         self.running = False
         self.ffmpeg_process = None
@@ -56,29 +58,54 @@ class RTSPStreamer:
     def _gop(self):
         return str(max(1, self.fps))  # ключевой кадр раз в секунду: зритель не ждёт 10 с
 
+    def _nvenc_variants(self):
+        """От полного набора параметров к минимальному: не все драйверы и сборки ffmpeg понимают -tune ull,
+        -zerolatency, -forced-idr, пресеты p1..p7."""
+        g, b = self._gop(), self.bitrate
+        return [
+            ["-c:v", "h264_nvenc", "-preset", "p1", "-tune", "ull", "-zerolatency", "1",
+             "-rc", "cbr", "-b:v", b, "-profile:v", "main", "-bf", "0", "-g", g, "-forced-idr", "1"],
+            ["-c:v", "h264_nvenc", "-preset", "p1", "-tune", "ll",
+             "-rc", "cbr", "-b:v", b, "-profile:v", "main", "-bf", "0", "-g", g],
+            ["-c:v", "h264_nvenc", "-b:v", b, "-bf", "0", "-g", g],
+        ]
+
     def _nvenc_args(self):
-        return ["-c:v", "h264_nvenc", "-preset", "p1", "-tune", "ull", "-zerolatency", "1",
-                "-rc", "cbr", "-b:v", self.bitrate, "-profile:v", "main",
-                "-bf", "0", "-g", self._gop(), "-forced-idr", "1"]
+        return self._nvenc_variants()[self._nvenc_level]
 
     def _x264_args(self):
         return ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
                 "-profile:v", "main", "-g", self._gop()]
 
+    def _test_nvenc(self, args):
+        r = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+             "-i", f"color=black:s=256x256:r={self.fps}", "-frames:v", "5",
+             *args, "-pix_fmt", "yuv420p", "-f", "null", "-"],
+            capture_output=True, timeout=25)
+        return r.returncode == 0, r.stderr.decode(errors="ignore").strip()
+
     def _nvenc_works(self):
-        """Реальная проверка: кодируем несколько кадров теми же параметрами, что и в работе."""
-        try:
-            r = subprocess.run(
-                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
-                 "-i", f"color=black:s=256x256:r={self.fps}", "-frames:v", "5",
-                 *self._nvenc_args(), "-pix_fmt", "yuv420p", "-f", "null", "-"],
-                capture_output=True, timeout=25)
-            if r.returncode != 0:
-                log.warning("NVENC test failed: %s", r.stderr.decode(errors="ignore").strip()[-300:])
-            return r.returncode == 0
-        except Exception as e:
-            log.warning("NVENC test error: %s", e)
-            return False
+        """Реальная проверка: кодируем несколько кадров. Если полный набор параметров не подошёл - пробуем упрощённые."""
+        first_error = ""
+        for level, args in enumerate(self._nvenc_variants()):
+            try:
+                ok, err = self._test_nvenc(args)
+            except Exception as e:
+                log.warning("NVENC test error: %s", e)
+                return False
+            if ok:
+                self._nvenc_level = level
+                if level:
+                    log.warning("NVENC: полный набор параметров не подошёл, используется упрощённый (вариант %d). "
+                                "Причина: %s", level + 1, first_error[-400:])
+                return True
+            if level == 0:
+                first_error = err
+                time.sleep(1.0)          # после перезапуска старый ffmpeg мог ещё не освободить NVENC-сессию
+        # весь текст ошибки: по нему видно причину (драйвер, лимит сессий, версия NVENC API)
+        log.warning("NVENC test failed: %s", first_error[-1500:])
+        return False
 
     def _choose_encoder(self):
         if self.encoder_setting == "x264":
@@ -151,7 +178,8 @@ class RTSPStreamer:
                 proc.stdin.flush()
                 frame = None
         except (BrokenPipeError, OSError) as e:
-            log.error("Pipe error (%s), reconnecting...", e)
+            if self.running:
+                log.error("Pipe error (%s), reconnecting...", e)
         finally:
             self._kill(proc)
 
@@ -177,17 +205,20 @@ class RTSPStreamer:
 
     @staticmethod
     def _kill(proc):
+        """Останавливает ffmpeg и дожидается его завершения: пока процесс жив, он держит NVENC-сессию GPU,
+        и сразу запущенный после перезапуска новый ffmpeg мог не открыть энкодер."""
         try:
             proc.stdin.close()
         except Exception:
             pass
-        try:
-            proc.wait(timeout=2)
-        except Exception:
+        for step in (lambda: proc.wait(timeout=2), proc.terminate, lambda: proc.wait(timeout=2),
+                     proc.kill, lambda: proc.wait(timeout=2)):
             try:
-                proc.terminate()
+                step()
+                if proc.poll() is not None:
+                    return
             except Exception:
-                pass
+                continue
 
     # ------------------------------------------------------------------ API
     def put_frame(self, frame):

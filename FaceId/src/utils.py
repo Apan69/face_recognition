@@ -87,10 +87,22 @@ class Connection:
         return {**self.JSON_HEADERS, "Authorization": token}
 
     def _get_json(self, path, params=None):
-        """GET к API с одной повторной попыткой при устаревшем токене."""
-        for attempt in (1, 2):
-            r = self._session.get(self._url(path), headers=self._headers(), params=params or None, timeout=15)
-            if r.status_code in (401, 403) and attempt == 1:
+        """GET к API: повтор при устаревшем токене и при обрыве соединения (Perco закрывает простаивающие
+        keep-alive соединения, и первый запрос по такому соединению падает с «Connection reset by peer»)."""
+        token_retried, net_retries = False, 0
+        while True:
+            try:
+                r = self._session.get(self._url(path), headers=self._headers(), params=params or None, timeout=15)
+            except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
+                if net_retries >= 2:
+                    raise
+                net_retries += 1
+                log.debug("Perco GET %s: %s - retrying on a new connection", path, e)
+                self._session.close()          # выбрасываем протухшие соединения; Session после close() пригодна
+                time.sleep(0.3)
+                continue
+            if r.status_code in (401, 403) and not token_retried:
+                token_retried = True
                 self._token = None
                 continue
             r.raise_for_status()

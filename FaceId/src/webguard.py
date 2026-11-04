@@ -26,7 +26,7 @@ SECURITY_HEADERS = [
 
 # какой уровень нужен для адреса; всё, чего нет в списках (конфиг, синхронизация и любые новые адреса), - уровень 3
 LEVEL1_EXACT = {"/", "/api/status", "/api/events"}
-LEVEL1_PREFIX = ("/webrtc/whep/",)
+LEVEL1_PREFIX = ("/webrtc/whep/", "/static/")   # файлы страницы (стили, скрипт)
 LEVEL2_EXACT = {"/api/users", "/api/divisions", "/api/photo", "/api/enable-pass", "/api/disable-pass"}
 
 

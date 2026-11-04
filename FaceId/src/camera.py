@@ -73,6 +73,8 @@ class Camera:
             self.connected = state
             if state:
                 log.info("Camera connected")
+            elif self.stop_event.is_set():
+                log.info("Camera released")          # сознательная остановка (перезапуск / выход), а не обрыв связи
             else:
                 log.warning("Camera not available%s", f": {reason}" if reason else "")
 
