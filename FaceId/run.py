@@ -1,4 +1,6 @@
-"""Запуск без ключей:  python3 run.py   - веб-интерфейс + распознавание (настройки: configs/config.yaml)
+"""Запуск без ключей:  python3 run.py ПАРОЛЬ_PERCO   - веб-интерфейс + распознавание (настройки: configs/config.yaml)
+   Пароль Perco (учётная запись connection.login) в config.yaml не хранится: его передают первым аргументом
+   (ExecStart=/usr/bin/python3 /faceId/run.py ПАРОЛЬ) или переменной окружения FACE_PERCO_PASSWORD.
    Служебные ключи:
            python3 run.py --encode   - только посчитать эмбеддинги для фото из images_folder
            python3 run.py --list     - вывести список пользователей и сохранить Id_for_tele.xlsx
@@ -69,6 +71,7 @@ def cmd_hash_password():
 
 def main():
     parser = argparse.ArgumentParser(prog="face-access")
+    parser.add_argument("password", nargs="?", default=None, help="пароль Perco для connection.login (вместо password в config.yaml)")
     parser.add_argument("-e", "--encode", action="store_true")
     parser.add_argument("-l", "--list", action="store_true")
     parser.add_argument("--hash-password", action="store_true", help="получить хеш пароля для auth.users[].password_hash")
@@ -77,8 +80,15 @@ def main():
     if args.hash_password:
         return cmd_hash_password()
 
-    from src.config import load_config
-    cfg = load_config(CONFIG_FILE)
+    from src.config import load_config, set_runtime_password
+    set_runtime_password(args.password)      # до загрузки конфига: пароль подставляется в connection.password
+    if args.password:                        # не оставляем пароль в sys.argv (трейсбеки, отладочный вывод)
+        sys.argv = [a for a in sys.argv if a != args.password]
+    try:
+        cfg = load_config(CONFIG_FILE)
+    except ValueError as e:
+        print(f"Ошибка конфигурации: {e}")
+        return 1
     if args.encode:
         return cmd_encode(cfg)
     if args.list:

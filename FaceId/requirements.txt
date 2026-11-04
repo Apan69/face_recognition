@@ -1,0 +1,14 @@
+numpy<2
+opencv-python
+pillow
+pyyaml
+pandas
+openpyxl
+requests
+tqdm
+fastapi
+uvicorn
+httpx
+python-multipart
+insightface
+onnxruntime-gpu[cuda,cudnn]

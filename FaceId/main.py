@@ -1,4 +1,5 @@
 """Веб-интерфейс (FastAPI): настройка параметров, просмотр потока из MediaMTX, добавление фото сотрудников."""
+import copy
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,7 +12,8 @@ from fastapi.responses import FileResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from src.auth import AuthManager
-from src.config import parse_config
+from src.config import apply_runtime_secrets, parse_config
+from src.logview import read_log
 from src.service import AccessService
 from src.utils import Connection
 from src.webguard import WebGuard
@@ -45,7 +47,8 @@ def guard_config():
 def operator_role(login):
     """(имя роли, заблокирован) оператора Perco по логину или None, если такого оператора нет.
     Роль определяет, какие вкладки доступны (Уровень1 / Уровень2 / Уровень3 и admin)."""
-    conn = service.connection or Connection(guard_config())   # сервис мог не запуститься - тогда отдельное подключение
+    # сервис мог не запуститься - тогда отдельное подключение; пароль Perco - из аргумента запуска
+    conn = service.connection or Connection(apply_runtime_secrets(copy.deepcopy(guard_config())))
     return conn.read_operators().get(login.strip().lower())
 
 
@@ -69,9 +72,35 @@ app.add_middleware(WebGuard, auth=auth, get_config=guard_config,
                    login_page=BASE_DIR / "templates" / "login.html")
 
 
+STATIC_FILES = {"camera.css", "camera.js"}   # только эти файлы страницы; охрана пускает к ним лишь после входа
+
+
 @app.get("/")
 def home():
     return FileResponse(BASE_DIR / "templates" / "camera.html")
+
+
+@app.get("/static/{name}")
+def static_file(name: str):
+    if name not in STATIC_FILES:
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(BASE_DIR / "templates" / "static" / name)
+
+
+@app.get("/api/log")
+def api_log(errors: bool = False):
+    """Записи log.txt за последние log_view_hours часов (config.yaml); errors=1 - только WARNING и выше."""
+    cfg = service.config or _raw_config()
+    try:
+        hours = float(cfg.get("log_view_hours", 6))
+    except (TypeError, ValueError):
+        hours = 6.0
+    hours = min(max(hours, 0.1), 720.0)
+    lines, truncated = read_log(cfg.get("log_file", "log.txt"), hours, errors)
+    shown = int(hours) if hours == int(hours) else round(hours, 1)
+    if lines is None:
+        return {"hours": shown, "lines": [], "truncated": False, "error": "файл журнала не найден"}
+    return {"hours": shown, "lines": lines, "truncated": truncated}
 
 
 @app.get("/api/status")

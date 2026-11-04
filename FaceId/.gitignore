@@ -1,0 +1,77 @@
+# ===== Секреты и настройки конкретной установки =====
+# В config.yaml лежит пароль Perco (connection.password) - в репозиторий не кладём.
+# Храните в git шаблон configs/config.example.yaml без паролей.
+configs/config.yaml
+configs/config.yaml.bak
+configs/config.yaml.tmp
+config.yaml
+config.yaml.bak
+config.yaml.tmp
+*.env
+.env*
+
+# Самоподписанный сертификат и ключи для HTTPS веб-интерфейса
+*.pem
+*.key
+*.crt
+*.cer
+certs/
+ssl/
+
+# ===== Персональные данные =====
+# Фото сотрудников и вычисленные по ним эмбеддинги (биометрия)
+images/
+arcface_embeddings/
+*_embeddings/
+*.npy
+*.npz
+*.pkl
+
+# Архив фото снятых с прохода по лицу, снимки срабатываний турникета
+archive/
+frame/
+
+# Выгрузка сотрудников из Excel (при source: excel)
+db.xlsx
+*.xlsx
+*.xls
+
+# ===== Журналы и данные работы =====
+log.txt
+*.log
+logs/
+events.jsonl
+events.jsonl.tmp
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Виртуальное окружение
+venv/
+.venv/
+env/
+
+# Сборка / пакеты
+build/
+dist/
+*.egg-info/
+
+# ===== Модели =====
+# Модели insightface (buffalo_l / buffalo_s) скачиваются сами
+.insightface/
+*.onnx
+
+# ===== Редакторы и ОС =====
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
