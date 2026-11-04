@@ -1,0 +1,74 @@
+  :root { --bg:#f4f5f7; --card:#fff; --text:#1d2330; --muted:#6b7280; --line:#e2e5ea; --accent:#2563eb; --ok:#15803d; --bad:#b91c1c; --warn:#c2410c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171c; --card:#1d222b; --text:#e6e8ec; --muted:#9aa3b2; --line:#2c3340; --accent:#4f8bff; --ok:#4ade80; --bad:#f87171; --warn:#fb923c; }
+  }
+  body { margin:0; font:15px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:1000px; margin:0 auto; padding:16px; }
+  h1 { text-align:center; margin:8px 0 16px; font-size:22px; }
+  h2 { margin:0 0 10px; font-size:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  video, canvas { width:100%; max-width:100%; background:#000; border-radius:8px; display:block; }
+  /* статус - в одну строку; если экран узкий, строка прокручивается по горизонтали, а не переносится */
+  #status { display:flex; flex-wrap:nowrap; gap:0 12px; color:var(--muted); font-size:12.5px; margin-top:8px;
+            white-space:nowrap; overflow-x:auto; scrollbar-width:thin; padding-bottom:2px; }
+  #status > * { flex:0 0 auto; }
+  #status b { color:var(--text); }
+  .ok { color:var(--ok); } .bad { color:var(--bad); }
+  button { font:inherit; padding:7px 14px; border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--text); cursor:pointer; }
+  button.danger { border-color:var(--bad); color:var(--bad); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  input[type=text], select { font:inherit; width:100%; padding:7px; border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--text); box-sizing:border-box; }
+  select { margin-top:6px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:760px) { .cols { grid-template-columns:1fr; } }
+  .hint { color:var(--muted); font-size:13px; }
+  .userbar { text-align:right; margin:-6px 0 10px; }
+  .userbar button { padding:3px 10px; margin-left:6px; }
+  #photoMsg.err, #cfgMsg.err { color:var(--bad); } #photoMsg.good, #cfgMsg.good { color:var(--ok); }
+  textarea { width:100%; box-sizing:border-box; font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; padding:8px; border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--text); }
+  .hidden { display:none; }
+  #curUser { flex:1 1 130px; min-width:0; text-align:center; font-weight:600; overflow-wrap:anywhere; }
+  #curUser.none { font-weight:400; color:var(--muted); }
+  #camSel { margin-top:0; width:auto; flex:1 1 180px; min-width:0; }
+  option.off { color:var(--warn); }
+  #divSel { margin:0 0 6px; }
+  .switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; }
+  .switch input { display:none; }
+  .slider { width:40px; height:22px; border-radius:11px; background:var(--line); position:relative; transition:.2s; }
+  .slider::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:.2s; }
+  .switch input:checked + .slider { background:var(--accent); }
+  .switch input:checked + .slider::after { left:21px; }
+  .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .head h2 { margin:0; }
+  #videoOff { padding:0; margin:0; text-align:left; }
+  .compact .head { margin-bottom:4px; }
+  .compact #status { margin-top:4px; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; overflow-x:auto; }
+  .tabs button { flex:0 0 auto; border:0; border-bottom:3px solid transparent; border-radius:7px 7px 0 0; background:none; padding:9px 18px; color:var(--muted); white-space:nowrap; }
+  .tabs button.active { color:var(--text); border-bottom-color:var(--accent); font-weight:600; }
+  @media (max-width:760px) { .tabs button { flex:1 1 auto; padding:9px 8px; } }
+  .warn { color:var(--warn); }
+  #eventsWrap { max-height:360px; overflow:auto; }
+  body.novideo #eventsWrap { max-height:calc(100vh - 250px); min-height:360px; }   /* видео выключено - больше строк */
+  #eventsWrap thead th { position:sticky; top:0; background:var(--card); z-index:1; }
+  #eventFilters input, #eventFilters select { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:7px;
+                                              background:var(--card); color:var(--text); width:auto; min-width:0; }
+  #fltName { flex:1 1 180px; max-width:280px; } #fltDiv { flex:1 1 180px; max-width:280px; }
+  .events { width:100%; border-collapse:collapse; font-size:14px; }
+  .events th { text-align:left; color:var(--muted); font-weight:500; padding:4px 8px; position:sticky; top:0; background:var(--card); }
+  .events td { padding:5px 8px; border-top:1px solid var(--line); }
+
+  /* подвкладки раздела «Конфиг» */
+  .subtabs { display:flex; gap:4px; margin-bottom:10px; }
+  .subtabs button { border:1px solid var(--line); border-radius:7px; background:none; padding:6px 14px; color:var(--muted); }
+  .subtabs button.active { color:var(--text); border-color:var(--accent); font-weight:600; }
+  #logBox { margin:8px 0 0; padding:8px; height:60vh; overflow:auto; border:1px solid var(--line); border-radius:7px;
+            font:12px/1.45 ui-monospace,Menlo,Consolas,monospace; white-space:pre-wrap; word-break:break-word; }
+  #logBox .w { color:var(--warn); } #logBox .e { color:var(--bad); font-weight:600; }
+  /* список сотрудников: проход включён, а файла эмбеддинга нет - по камере не узнает, поэтому заметно */
+  option.noemb { background:#c62828; color:#fff; font-weight:600; }
+
+  /* список сотрудников той же высоты, что окно журнала log.txt (60vh) */
+  #userSel { height:60vh; }
